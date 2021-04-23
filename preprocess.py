@@ -3,6 +3,7 @@ import glob
 import h5py
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from config import Config
 
@@ -23,6 +24,7 @@ def make_dataset(filename):
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     df['1'] = df['1'].apply(int, base=16)
 
+    data_all = []
     labels = []
 
     for i in range(int(len(df)/Config.TIMESTEP)):
@@ -32,10 +34,17 @@ def make_dataset(filename):
         data = df.iloc[i*Config.TIMESTEP:(i+1)*Config.TIMESTEP]
         labels.append(1) if 'Attack' in data.values else labels.append(0)
         can_id = np.stack(data['1'].apply(lambda x : id2bit(x)).to_numpy())
-        data = np.concatenate((np.array(data['0']).reshape(-1, 1), can_id), axis=1)
+        data_all.append(np.concatenate((np.array(data['0']).reshape(-1, 1), can_id), axis=1))
 
-        np.save(Config.DATAPATH+str(i), data)
-    np.save(Config.DATAPATH+"labels", np.array(labels))
+    X_train, X_test, y_train, y_test  = train_test_split(np.array(data_all), np.array(labels), test_size=0.2)
+    X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.2)
+    
+    np.save(Config.DATAPATH+"data_train", np.array(X_train))
+    np.save(Config.DATAPATH+"data_valid", np.array(X_valid))
+    np.save(Config.DATAPATH+"data_test", np.array(X_test))
+    np.save(Config.DATAPATH+"labels_train", np.array(y_train))
+    np.save(Config.DATAPATH+"labels_valid", np.array(y_valid))
+    np.save(Config.DATAPATH+"labels_test", np.array(y_test))
     
 
 if __name__ == "__main__":
