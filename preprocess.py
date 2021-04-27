@@ -35,15 +35,13 @@ def make_dataset(filename):
         labels.append(1) if 'Attack' in data.values else labels.append(0)
         can_id = np.stack(data['1'].apply(lambda x : id2bit(x)).to_numpy())
         data_all.append(np.concatenate((np.array(data['0']).reshape(-1, 1), can_id), axis=1))
+        #data_all.append(can_id)
 
     X_train, X_test, y_train, y_test  = train_test_split(np.array(data_all), np.array(labels), test_size=0.2)
-    X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.2)
     
     np.save(Config.DATAPATH+"data_train", np.array(X_train))
-    np.save(Config.DATAPATH+"data_valid", np.array(X_valid))
     np.save(Config.DATAPATH+"data_test", np.array(X_test))
     np.save(Config.DATAPATH+"labels_train", np.array(y_train))
-    np.save(Config.DATAPATH+"labels_valid", np.array(y_valid))
     np.save(Config.DATAPATH+"labels_test", np.array(y_test))
     
 

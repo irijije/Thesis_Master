@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
@@ -26,11 +27,11 @@ class LSTM(tf.keras.Model):
         super(LSTM, self).__init__()
         self.modelname = modelname
 
-        self.X_train = np.load(Config.DATAPATH+"data_train.npy").astype('float32')
-        self.X_test = np.load(Config.DATAPATH+"data_test.npy").astype('float32')
+        self.X_train, self.y_train = np.load(Config.DATAPATH+"data_train.npy"), np.load(Config.DATAPATH+"labels_train.npy")
+        self.X_test, self.y_test = np.load(Config.DATAPATH+"data_test.npy"), np.load(Config.DATAPATH+"labels_test.npy")
 
-        self.X_train = self.normalization(self.X_train)
-        self.X_test = self.normalization(self.X_test)
+        self.X_train = self.normalization(self.X_train.astype('float32'))
+        self.X_test = self.normalization(self.X_test.astype('float32'))
     
         self.encoder = tf.keras.Sequential([
             tf.keras.layers.LSTM(32, activation='relu', input_shape=(Config.TIMESTEP, Config.N_FEATURES), return_sequences=False),
@@ -62,13 +63,23 @@ class LSTM(tf.keras.Model):
 
     def train(self, epochs=5):
         self.X_train = tf.data.Dataset.from_tensor_slices(self.X_train).batch(Config.BATCH_SIZE)
+        losses = []
         for epoch in range(epochs):
             print("epoch: {} training".format(epoch))
             for batch in self.X_train:
                 loss = self.train_step(batch)
             tf.print(loss)
+            losses.append(loss.numpy())
         self.encoder.save(self.modelname[0])
         self.decoder.save(self.modelname[1])
+
+        plt.plot(losses, linewidth=2, label='Train')
+        plt.legend(loc='upper right')
+        plt.title('Model loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.savefig("figures/lstm_loss.png")
+        plt.show()
 
     def show_test(self):
         x = self.X_test[:2]
@@ -88,14 +99,32 @@ class LSTM(tf.keras.Model):
 
     def test(self):
         x = self.X_train
+        self.X_train = tf.data.Dataset.from_tensor_slices(self.X_train).batch(Config.BATCH_SIZE)
+        y = self.y_train.tolist()
 
         self.encoder = tf.keras.models.load_model(self.modelname[0])
         self.decoder = tf.keras.models.load_model(self.modelname[1])
 
         z = self.encoder(x, training=False)
-        #x_ = self.decoder(z, training=False)
+        x_ = self.decoder(z, training=False)
 
         np.save(Config.DATAPATH+"features_train", z)
+
+        mse = np.mean(np.power(self.flatten(x) - self.flatten(x_), 2), axis=1)
+        error_df = pd.DataFrame({'Reconstruction_error': mse,
+                                'True_class': y})
+        groups = error_df.groupby('True_class')
+        _, ax = plt.subplots()
+
+        for name, group in groups:
+            ax.plot(group.index, group.Reconstruction_error, marker='o', ms=3.5, linestyle='',
+                    label= "Attack" if name == 1 else "Normal")
+        ax.legend()
+        plt.title("Reconstruction error for different classes")
+        plt.ylabel("Reconstruction error")
+        plt.xlabel("Data point index")
+        plt.savefig("figures/Reconstruction_error.png")
+        plt.show()
     
     def normalization(self, X):
         scaler = StandardScaler().fit(self.flatten(X))
