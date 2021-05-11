@@ -1,8 +1,12 @@
 import numpy as np
-from sklearn.model_selection import train_test_split
+import pandas as pd
 
-X, y  = np.arange(10).reshape((5,2)), range(5)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+from config import Config
 
-print(X)
-print(X_train)
+df = pd.read_csv(Config.FILENAME, names=[str(x) for x in range(6)], header=None)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+
+df['1'] = df['1'].apply(int, base=16)
+df['3'] = df['3'].apply(lambda x: int(str(x).replace(" ", ""), base=16))
+
+print(df.head())
