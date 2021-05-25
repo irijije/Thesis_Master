@@ -1,23 +1,34 @@
 class Config:    
     N_ID = 2048
+    UNIT_INTVL = 10/1000
+    N_INTVL = 10
     
+    UNIT_TIMESTEP = N_INTVL
     MAX_TIMESTEP = 300
-    UNIT_TIMESTEP = 30
-    N_INTVL = int(MAX_TIMESTEP/UNIT_TIMESTEP)
     N_FEATURES = 30
 
-    BUFFER_SIZE = 10000
     BATCH_SIZE = 64
     EPOCHS = 10
 
-    FILENAME = "dataset/0_Preliminary/1_Submission/Pre_submit_D.csv"
-    #FILENAME = "dataset/1_Final/Fin_host_session_submit_S.csv"
-    DATAPATH = f"data/hand/"
-    #DATAPATH = f"data/raw/"
+    MODE = 'raw'
+    isMC = True
+    isTRAIN = True
+    STATUS = 'D'
+    N = 2
 
-    #MODEL_NAME = "models/cnn_id.h5"
-    MODEL_NAME = "models/cnn_hand.h5"
-    #MODEL_NAME = "models/cnn_mk.h5"
-    #MODEL_NAME = "models/cnn_lstm.h5"
-    #MODEL_NAME = "models/cnn_raw"
-    #MODEL_NAME = ['models/encoder_mt.h5', 'models/decoder_mt.h5']
+    NAME = MODE
+    BASEPATH = 'data/base/'
+    
+    if isMC:
+        NAME += '_mc'
+        BASEPATH = BASEPATH[:-1] + '_mc/'
+
+    if isTRAIN:
+        FILENAME = f"dataset/0_Preliminary/0_Training/Pre_train_{STATUS}_{N}.csv"
+        BASEPATH = BASEPATH+f"train/{STATUS}/"
+        DATAPATH = f"data/{NAME}/train/{STATUS}/"
+    else:
+        FILENAME = f"dataset/0_Preliminary/1_Submission/Pre_submit_{STATUS}.csv"
+        BASEPATH = BASEPATH+f"test/{STATUS}/"
+        DATAPATH = f"data/{NAME}/test/{STATUS}/"
+    MODEL_NAME = f"models/{NAME}_{STATUS}.h5"

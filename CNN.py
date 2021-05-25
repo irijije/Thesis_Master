@@ -1,14 +1,9 @@
 import os
 import numpy as np
-import pandas as pd
-import seaborn as sns
 import tensorflow as tf
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_recall_fscore_support as score
 
+from tools import *
 from config import Config
 
 
@@ -25,86 +20,73 @@ if gpus:
 
 
 class CNN:
-    def __init__(self, model_name):
-        self.model_name = model_name
+    def __init__(self):
+        self.X_train, self.y_train, self.X_test, self.y_test = load_data()
 
-        self.X_train, self.y_train = np.load(Config.DATAPATH+"data_train.npy"), np.load(Config.DATAPATH+"labels_train.npy")
-        self.X_test, self.y_test = np.load(Config.DATAPATH+"data_test.npy"), np.load(Config.DATAPATH+"labels_test.npy")
+        show_tsne(self.X_train[:100], self.y_train[:100])
 
-        scaler = StandardScaler()
-        self.X_train = scaler.fit_transform(self.X_train.reshape(-1, self.X_train.shape[-1])).reshape(self.X_train.shape).astype('float32')
-        self.X_test = scaler.transform(self.X_test.reshape(-1, self.X_test.shape[-1])).reshape(self.X_test.shape).astype('float32')
+        #self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_train, self.y_train, test_size=0.2)
 
         self.X_train = self.X_train.reshape(list(self.X_train.shape)+[1])
         self.X_test = self.X_test.reshape(list(self.X_test.shape)+[1])
+        print(self.X_train.shape)
+        print(self.X_test.shape)
 
-        self.model = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(self.X_train.shape[1], self.X_train.shape[2], 1)),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            tf.keras.layers.Dropout(0.5),
-            tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            tf.keras.layers.Dropout(0.5),
-            tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(32, activation='relu'),
-            tf.keras.layers.Dense(1, activation='sigmoid'),
-        ])
+        if Config.isMC:
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(self.X_train.shape[1], self.X_train.shape[2], 1)),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Dropout(0.5),
+                tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Dropout(0.5),
+                tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dense(16, activation='relu'),
+                tf.keras.layers.Dense(5, activation='softmax'),
+            ])
+            loss = tf.keras.losses.SparseCategoricalCrossentropy()
+        else:
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(self.X_train.shape[1], self.X_train.shape[2], 1)),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Dropout(0.5),
+                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Dropout(0.5),
+                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dense(32, activation='relu'),
+                tf.keras.layers.Dense(1, activation='sigmoid'),
+            ])
+            loss = tf.keras.losses.BinaryCrossentropy()
 
         self.model.compile(
                     optimizer=tf.keras.optimizers.Adam(),
-                    loss='binary_crossentropy',
+                    loss=loss,
                     metrics=['accuracy'],
         )
 
     def train(self):
         hist = self.model.fit(self.X_train, self.y_train,
-                                batch_size=Config.BATCH_SIZE,
                                 validation_split=0.2,
+                                batch_size=Config.BATCH_SIZE,
                                 epochs=Config.EPOCHS,)
-        self.model.save(self.model_name)
+        self.model.save(Config.MODEL_NAME)
 
-        plt.title("Trainning result")
-        loss_ax = plt.gca()
-        acc_ax = loss_ax.twinx()
-        loss_ax.plot(hist.history['loss'], color='C0', linestyle='-', label='train loss')
-        acc_ax.plot(hist.history['accuracy'], color='C1', linestyle='-', label='train acc')
-        loss_ax.plot(hist.history['val_loss'], color='C2', linestyle='--', label='val loss')
-        acc_ax.plot(hist.history['val_accuracy'], color='C3', linestyle='--', label='val acc')
-        loss_ax.set_xlabel('epoch')
-        loss_ax.set_ylabel('loss')
-        acc_ax.set_ylabel('accuray')
-        loss_ax.legend(loc='upper left')
-        acc_ax.legend(loc='lower left')
-        plt.grid(b=True, which='major', linestyle='--')
-        plt.savefig('figures/trainning_result.png')
-        plt.show()
+        #show_train_result(hist)
 
     def test(self):
-        self.model = tf.keras.models.load_model(self.model_name)
+        self.model = tf.keras.models.load_model(Config.MODEL_NAME)
         y_pred = self.model.predict_classes(self.X_test)
         y_true = self.y_test
-        loss, acc = self.model.evaluate(self.X_test, self.y_test, verbose=2)
-        precision, recall, f1, _ = score(y_true, y_pred, zero_division=1)
+        _, acc = self.model.evaluate(self.X_test, self.y_test, verbose=2)
         print(acc)
-        print(precision)
-        print(recall)
         
-        conf_matrix = confusion_matrix(y_true, y_pred)
-
-        labels = ["Normal", "Attack"]
-        plt.figure(figsize=(6, 6))
-        sns.heatmap(conf_matrix, xticklabels=labels, yticklabels=labels, annot=True, fmt="d")
-        plt.title("Confusion matrix")
-        plt.ylabel('True class')
-        plt.xlabel('Predicted class')
-        plt.savefig('figures/confusion_matrix.png')
-        plt.show()
-        
-        return (loss, acc, precision, recall, f1)
+        show_test_result(y_true, y_pred)
 
 
 if __name__ == "__main__":
-    cnn = CNN(Config.MODEL_NAME)
+    cnn = CNN()
     cnn.train()
     cnn.test()
