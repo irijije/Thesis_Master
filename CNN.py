@@ -23,43 +23,28 @@ class CNN:
     def __init__(self):
         self.X_train, self.y_train, self.X_test, self.y_test = load_data()
 
-        show_tsne(self.X_train[:100], self.y_train[:100])
-
-        #self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_train, self.y_train, test_size=0.2)
-
         self.X_train = self.X_train.reshape(list(self.X_train.shape)+[1])
         self.X_test = self.X_test.reshape(list(self.X_test.shape)+[1])
-        print(self.X_train.shape)
-        print(self.X_test.shape)
 
+        model_input = tf.keras.layers.Input(shape=(self.X_train.shape[1], self.X_train.shape[2], 1))
+        z = tf.keras.layers.Conv2D(16, (3, 3), activation='relu')(model_input)
+        z = tf.keras.layers.MaxPooling2D((2, 2))(z)
+        z = tf.keras.layers.Dropout(0.5)(z)
+        z = tf.keras.layers.Conv2D(16, (3, 3), activation='relu')(z)
+        z = tf.keras.layers.MaxPooling2D((2, 2))(z)
+        z = tf.keras.layers.Dropout(0.5)(z)
+        z = tf.keras.layers.Conv2D(16, (3, 3), activation='relu')(z)
+        z = tf.keras.layers.Flatten()(z)
+        dense = tf.keras.layers.Dense(16, activation='relu')(z)
+        
         if Config.isMC:
-            self.model = tf.keras.Sequential([
-                tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(self.X_train.shape[1], self.X_train.shape[2], 1)),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.5),
-                tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.5),
-                tf.keras.layers.Conv2D(16, (3, 3), activation='relu'),
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(16, activation='relu'),
-                tf.keras.layers.Dense(5, activation='softmax'),
-            ])
+            model_output = tf.keras.layers.Dense(5, activation='softmax')(dense)
             loss = tf.keras.losses.SparseCategoricalCrossentropy()
         else:
-            self.model = tf.keras.Sequential([
-                tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(self.X_train.shape[1], self.X_train.shape[2], 1)),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.5),
-                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.5),
-                tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(32, activation='relu'),
-                tf.keras.layers.Dense(1, activation='sigmoid'),
-            ])
+            model_output = tf.keras.layers.Dense(1, activation='sigmoid')(dense)
             loss = tf.keras.losses.BinaryCrossentropy()
+        
+        self.model = tf.keras.models.Model(model_input, model_output)
 
         self.model.compile(
                     optimizer=tf.keras.optimizers.Adam(),
@@ -74,14 +59,15 @@ class CNN:
                                 epochs=Config.EPOCHS,)
         self.model.save(Config.MODEL_NAME)
 
-        #show_train_result(hist)
+        show_train_result(hist)
 
     def test(self):
         self.model = tf.keras.models.load_model(Config.MODEL_NAME)
-        y_pred = self.model.predict_classes(self.X_test)
+        if Config.isMC:
+            y_pred = np.argmax(self.model.predict(self.X_test), axis=1)
+        else:
+            y_pred = np.around(self.model.predict(self.X_test))
         y_true = self.y_test
-        _, acc = self.model.evaluate(self.X_test, self.y_test, verbose=2)
-        print(acc)
         
         show_test_result(y_true, y_pred)
 

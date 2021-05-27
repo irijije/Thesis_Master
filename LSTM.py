@@ -25,10 +25,12 @@ class LSTM(tf.keras.Model):
         self.X_train, self.y_train, self.X_test, self.y_test = load_data()
         
         model_input = tf.keras.layers.Input(shape=(Config.UNIT_TIMESTEP, Config.N_ID, 2))
-        lstm1 = tf.keras.layers.LSTM(16, activation='relu', return_sequences=False)(model_input[:, :, :, 0])
-        #lstm2 = tf.keras.layers.LSTM(16, activation='relu', return_sequences=False)(model_input[:, :, :, 1])
-        #dense = tf.keras.layers.Dense(8, activation='relu')(tf.keras.layers.Concatenate()([lstm1, lstm2]))
-        dense = tf.keras.layers.Dense(8, activation='relu')(lstm1)
+        lstm1 = tf.keras.layers.Bidirectional(LSTM(16, activation='relu', return_sequences=False))(model_input[:, :, :, 0])
+        lstm2 = tf.keras.layers.Bidirectional(LSTM(16, activation='relu', return_sequences=False))(model_input[:, :, :, 1])
+        lstm1 = tf.keras.layers.Dropout(0.5)(lstm1)
+        lstm2 = tf.keras.layers.Dropout(0.5)(lstm2)
+        dense = tf.keras.layers.Dense(8, activation='relu')(tf.keras.layers.Concatenate()([lstm1, lstm2]))
+        #dense = tf.keras.layers.Dense(8, activation='relu')(lstm2)
 
         if Config.isMC:
             model_output = tf.keras.layers.Dense(5, activation='softmax')(dense)
@@ -48,7 +50,7 @@ class LSTM(tf.keras.Model):
                                 epochs=Config.EPOCHS,)
         self.model.save(Config.MODEL_NAME)
 
-        #show_train_result(hist)
+        show_train_result(hist)
 
     def test(self):
         self.model = tf.keras.models.load_model(Config.MODEL_NAME)
@@ -58,8 +60,6 @@ class LSTM(tf.keras.Model):
         else:
             y_pred = np.around(self.model.predict(self.X_test))
         y_true = self.y_test
-
-        self.model.evaluate(self.X_test, self.y_test, verbose=2)
 
         show_test_result(y_true, y_pred)
 

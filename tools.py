@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
 
@@ -15,6 +17,7 @@ from config import Config
 def load_data():
     X_train, y_train = np.load(Config.DATAPATH+f"data.npy"), np.load(Config.DATAPATH+f"labels.npy")
     X_test, y_test = np.load(Config.DATAPATH[:-8]+f"test/{Config.STATUS}/data.npy"), np.load(Config.DATAPATH[:-8]+f"test/{Config.STATUS}/labels.npy")
+    #X_train, X_test, y_train, y_test = train_test_split(X_test, y_test, test_size=0.2)
 
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape).astype('float32')
@@ -53,6 +56,7 @@ def show_train_result(hist):
     plt.show()
 
 def show_test_result(y_true, y_pred):
+    print(accuracy_score(y_true, y_pred))
     precision, recall, _, _ = precision_recall_fscore_support(y_true, y_pred, zero_division=1)
     print(precision)
     print(recall)

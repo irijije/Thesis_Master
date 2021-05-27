@@ -41,16 +41,16 @@ def one_step(chunk, pre_time):
 def temporalize(X, y, lookback):
     X_ = []
     y_ = []
+    X[:, :, 1] = X[:, :, 1]/(X[:, :, 0]+0.000001)
     for i in range(len(X) - lookback + 1):
         if i%100 == 0:
             print(f"{i}/{len(X)} {int(i/len(X)*100)}%")
-        if i%10 == 0:
-            t = []
-            for j in range(lookback):
-                t.append(X[i + j, :])
-            X_.append(t)
-            s = list(set(y[i:i+lookback])-{0})
-            y_.append(0) if s==[] else y_.append(s[0])
+        t = []
+        for j in range(lookback):
+            t.append(X[i + j, :])
+        X_.append(t)
+        s = list(set(y[i:i+lookback])-{0})
+        y_.append(0) if s==[] else y_.append(s[0])
         
     return np.squeeze(np.array(X_)), np.array(y_)
 
@@ -132,6 +132,12 @@ def make_dataset_cnn():
         mean_IATs = []
 
         cur = start+(i+1)*Config.UNIT_INTVL
+
+        big_chunk = df[(df['0'] >= cur-Config.UNIT_INTVL*Config.N_INTVL) & (df['0'] < cur)]
+        if Config.isMC:
+            labels.append(get_class(big_chunk)) if 'Attack' in big_chunk.values else labels.append(0)
+        else:
+            labels.append(1) if 'Attack' in big_chunk.values else labels.append(0)
         
         cur_chunk = df[(df['0'] >= cur-Config.UNIT_INTVL) & (df['0'] < cur)]
         cur_count, cur_sum_IAT, pre_time = one_step(cur_chunk, pre_time)
@@ -144,23 +150,19 @@ def make_dataset_cnn():
                 pre_count, pre_sum_IAT = hist[idx]
             else:
                 pre_count, pre_sum_IAT = np.zeros_like(cur_count), np.zeros_like(cur_sum_IAT)
+
             counts[j] = counts[j] + cur_count - pre_count
             frequency = counts[j]
             sum_IATs[j] = sum_IATs[j] + cur_sum_IAT - pre_sum_IAT
             mean_IAT = sum_IATs[j]/(frequency+0.000001)
+
             frequencys.append(frequency)
             mean_IATs.append(mean_IAT)
-
-        if (i+1)%10==0:
-            big_chunk = df[(df['0'] >= cur-Config.UNIT_INTVL*Config.N_INTVL) & (df['0'] < cur)]
-            if Config.isMC:
-                labels.append(get_class(big_chunk)) if 'Attack' in big_chunk.values else labels.append(0)
-            else:
-                labels.append(1) if 'Attack' in big_chunk.values else labels.append(0)
-            frequencys = np.array(frequencys).transpose()
-            mean_IATs = np.array(mean_IATs).transpose()
-            mean_IATs = np.array(pd.DataFrame(mean_IATs).replace([0, np.nan], 1))
-            data.append(np.concatenate([frequencys, mean_IATs], -1))
+        
+        frequencys = np.array(frequencys).transpose()
+        mean_IATs = np.array(mean_IATs).transpose()
+        mean_IATs = np.array(pd.DataFrame(mean_IATs).replace([0, np.nan], 1))
+        data.append(np.concatenate([frequencys, mean_IATs], -1))
     
     data, labels = shuffle(np.array(data)[Config.N_INTVL-1:], np.array(labels)[Config.N_INTVL-1:])
 
@@ -235,7 +237,7 @@ def make_dataset_raw():
 def make_dataset_test():
     os.makedirs(Config.DATAPATH, exist_ok=True)
     df = pd.read_csv(Config.FILENAME, names=[str(x) for x in range(6)], header=None)
-    df = df[['0', '1', '4', '5']]
+    #df = df[['0', '1', '4', '5']]
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     df['1'] = df['1'].apply(int, base=16)
 
@@ -250,14 +252,14 @@ def make_dataset_test():
     
         cur = start+(i+1)*Config.UNIT_INTVL
         
-        chunk = df[(df['0'] >= cur-Config.UNIT_INTVL) & (df['0'] < cur)]
+        chunk = df[(df['0'] >= cur-Config.UNIT_INTVL*Config.N_INTVL) & (df['0'] < cur)]
         if Config.isMC:
             labels.append(get_class(chunk)) if 'Attack' in chunk.values else labels.append(0)
         else:
             labels.append(1) if 'Attack' in chunk.values else labels.append(0)
         d = chunk['1'].apply(lambda x : id2bit(x))
         if not d.empty: data.append(np.stack(d.to_numpy()))
-        else: data.append(np.zeros((40, 29)))
+        else: data.append(np.zeros((400, 29)))
 
     data = np.array(data)
     
@@ -320,6 +322,6 @@ def merge_data():
 if __name__ == "__main__":
     #make_dataset_cnn()
     #make_dataset_lstm()
-    #make_dataset_raw()
+    make_dataset_raw()
     #make_dataset_test()
-    merge_data()
+    #merge_data()

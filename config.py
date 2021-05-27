@@ -1,6 +1,6 @@
 class Config:    
     N_ID = 2048
-    UNIT_INTVL = 10/1000
+    UNIT_INTVL = 1/1000
     N_INTVL = 10
     
     UNIT_TIMESTEP = N_INTVL
@@ -8,13 +8,13 @@ class Config:
     N_FEATURES = 30
 
     BATCH_SIZE = 64
-    EPOCHS = 10
+    EPOCHS = 5
 
-    MODE = 'raw'
+    MODE = 'lstm'
     isMC = True
     isTRAIN = True
     STATUS = 'D'
-    N = 2
+    N = 1
 
     NAME = MODE
     BASEPATH = 'data/base/'
